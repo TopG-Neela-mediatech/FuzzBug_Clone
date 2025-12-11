@@ -85,6 +85,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1089194057570205024}
   - component: {fileID: 1963380324784619738}
+  - component: {fileID: 2662952930011843942}
+  - component: {fileID: 9066241234214740744}
   m_Layer: 0
   m_Name: Character
   m_TagString: Untagged
@@ -128,6 +130,32 @@ MonoBehaviour:
   _animator: {fileID: 0}
   _image: {fileID: 5783646374474005675}
   _speedVariance: 20
+--- !u!225 &2662952930011843942
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6866392107931775708}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &9066241234214740744
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6866392107931775708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6877b9ec63fed6e47b7f08ab4bd989c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _dragAlpha: 1
+  _returnSpeed: 5
 --- !u!1 &8111570923731991172
 GameObject:
   m_ObjectHideFlags: 0
