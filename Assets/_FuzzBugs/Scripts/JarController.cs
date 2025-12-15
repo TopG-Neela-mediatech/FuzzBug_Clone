@@ -7,13 +7,13 @@ using System.Collections;
 
 namespace TMKOC.FuzzBugClone
 {
-    public class JarController : MonoBehaviour, IDropHandler, IPointerClickHandler
+    public class JarController : MonoBehaviour, IDropHandler, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         [SerializeField] private Image _jar;
         [SerializeField] private BugColorType _jarColorType;
         [SerializeField] private Transform _bugContainer;
         [SerializeField] private float _dropVarianceX = 50f;
-        
+
         [Header("UI Components")]
         [SerializeField] private TMP_Text _countText; // Reference to the counter text
 
@@ -26,6 +26,8 @@ namespace TMKOC.FuzzBugClone
         private Material _jarMaterial;
         private bool _isCounting = false;
         private bool _hasCounted = false;
+
+        public BugColorType JarColor { get { return _jarColorType; } }
 
         private void Start()
         {
@@ -41,17 +43,17 @@ namespace TMKOC.FuzzBugClone
             {
                 FuzzBugController bug = eventData.pointerDrag.GetComponent<FuzzBugController>();
                 Draggable draggable = eventData.pointerDrag.GetComponent<Draggable>();
-                
+
                 if (bug != null && draggable != null)
                 {
                     Debug.Log($"Dropped Bug Color: {bug.BugColor}, Jar Color: {_jarColorType}");
                     if (bug.BugColor == _jarColorType)
                     {
                         Debug.Log($"<color=green>Correct Bug! {bug.BugColor} matches Jar.</color>");
-                        
+
                         // Notify draggable it's handled
                         draggable.Consume();
-                        
+
                         // Parenting to Jar Container
                         if (_bugContainer != null)
                         {
@@ -77,11 +79,11 @@ namespace TMKOC.FuzzBugClone
                         // DOTween Jump Animation
                         // Jump to local target with power 300, 1 jump, duration 0.5s
                         bug.transform.DOLocalJump(targetPos, 300f, 1, 0.5f).SetEase(Ease.OutQuad);
-                        
+
                         // Scale down slightly but preserve facing direction (Sign of X)
                         float currentSignX = Mathf.Sign(bug.transform.localScale.x);
                         Vector3 targetScale = new Vector3(0.5f * currentSignX, 0.5f, 0.5f);
-                        
+
                         bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad);
 
                         // ANIMATION: Set Sorted State (StaticIdle)
@@ -104,6 +106,17 @@ namespace TMKOC.FuzzBugClone
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            // Question Phase Interaction
+            if (GameManager.Instance.CurrentState == GameState.FindLeast ||
+                GameManager.Instance.CurrentState == GameState.FindMost)
+            {
+                if (InteractionManager.Instance != null)
+                {
+                    InteractionManager.Instance.SubmitAnswer_Jar(this);
+                }
+                return;
+            }
+
             // Only start layout if we are in Counting phase and haven't started counting interaction yet
             if (GameManager.Instance.CurrentState == GameState.Counting && !_isCounting && !_hasCounted)
             {
@@ -114,7 +127,7 @@ namespace TMKOC.FuzzBugClone
         private void StartCountingSequence()
         {
             _isCounting = true;
-            
+
             // Notify GameManager that this Jar is now Active for counting
             if (GameManager.Instance != null)
             {
@@ -125,7 +138,7 @@ namespace TMKOC.FuzzBugClone
             if (_jar != null) _jar.raycastTarget = false;
 
             ArrangeBugsInGrid();
-            
+
             // Initialize count text
             if (_countText != null) _countText.text = "0";
         }
@@ -140,7 +153,7 @@ namespace TMKOC.FuzzBugClone
 
             // Animate Punch
             bug.transform.DOPunchScale(Vector3.one * 0.2f, 0.2f, 10, 1);
-            
+
             // ANIMATION: Play Dance
             bug.PlayDance();
 
@@ -157,24 +170,23 @@ namespace TMKOC.FuzzBugClone
             int totalBugsForJar = LevelDataManager.Instance.GetCountForColor(_jarColorType);
             if (currentCount >= totalBugsForJar)
             {
-                _countText.color = Color.green; // Visual feedback
                 if (GameManager.Instance != null)
                 {
                     GameManager.Instance.OnJarFinishedCounting();
                 }
             }
         }
-        
+
         // Called by GameManager when another Jar starts counting
         public void ResetBugAnimations()
         {
             if (_bugContainer == null) return;
-            
+
             // Stop counting? Should we allow multiple jars to be "counting" state?
             // User requested "previous jar's fuzz bugs should stop dancing and revert back to static idle"
             // We don't necessarily reset the "Count Info", just the animation.
-            
-            foreach(Transform child in _bugContainer)
+
+            foreach (Transform child in _bugContainer)
             {
                 FuzzBugController bug = child.GetComponent<FuzzBugController>();
                 if (bug != null)
@@ -189,7 +201,7 @@ namespace TMKOC.FuzzBugClone
             if (_bugContainer == null || _bugContainer.childCount == 0) return;
 
             int childCount = _bugContainer.childCount;
-            
+
             // Calculate centering offset
             float totalWidth = (_gridColumns - 1) * _gridSpacingX;
             float startX = -totalWidth / 2f;
@@ -197,7 +209,7 @@ namespace TMKOC.FuzzBugClone
             for (int i = 0; i < childCount; i++)
             {
                 Transform child = _bugContainer.GetChild(i);
-                
+
                 int col = i % _gridColumns;
                 int row = i / _gridColumns;
 
@@ -211,18 +223,97 @@ namespace TMKOC.FuzzBugClone
                 {
                     cg.blocksRaycasts = true;
                 }
-                
+
                 // Disable Draggable to prevent accidental drags
                 if (child.TryGetComponent<Draggable>(out var draggable))
                 {
                     draggable.enabled = false;
                 }
 
+
                 // Animate to grid position
                 child.DOLocalMove(targetPos, 0.5f).SetEase(Ease.OutBack);
-                child.DORotate(Vector3.zero, 0.3f); 
-                child.DOScale(Vector3.one * 0.6f, 0.5f); 
+                child.DORotate(Vector3.zero, 0.3f);
+                child.DOScale(Vector3.one * 0.6f, 0.5f);
             }
+        }
+
+        public void PlayCelebration()
+        {
+            if (_bugContainer == null) return;
+            foreach (Transform child in _bugContainer)
+            {
+                FuzzBugController bug = child.GetComponent<FuzzBugController>();
+                if (bug != null)
+                {
+                    bug.PlayDance();
+                }
+            }
+        }
+
+        // --- Ordering Phase (Dragging Jars) ---
+
+        private Vector3 _startDragPosition;
+        private Transform _parentContainer;
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.Comparing) return;
+
+            _startDragPosition = transform.position;
+            _parentContainer = transform.parent;
+
+            // Visual Feedback
+            transform.DOScale(Vector3.one * 1.1f, 0.2f);
+            if (_jar != null) _jar.raycastTarget = false; // Pass through
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.Comparing) return;
+
+            // Move the jar visually
+            transform.position = eventData.position;
+
+            // Swap Logic: Check if we are crossing other siblings
+            for (int i = 0; i < _parentContainer.childCount; i++)
+            {
+                Transform sibling = _parentContainer.GetChild(i);
+                if (sibling == transform) continue;
+
+                // Simple X-axis distance check for swapping
+                // If we are close to this sibling's center, swap places in hierarchy
+                if (Mathf.Abs(sibling.position.x - transform.position.x) < 40f) // Threshold
+                {
+                    // Swap sibling indices
+                    int myIndex = transform.GetSiblingIndex();
+                    int otherIndex = sibling.GetSiblingIndex();
+
+                    // Swap logic only if moving in correct direction relative to indices
+                    if (myIndex < otherIndex && transform.position.x > sibling.position.x ||
+                        myIndex > otherIndex && transform.position.x < sibling.position.x)
+                    {
+                        transform.SetSiblingIndex(otherIndex);
+                        // Refresh layout if using LayoutGroup? 
+                        // If LayoutGroup is active, it might fight 'transform.position'.
+                        // Usually we disable LayoutCompoment or use a placeholder.
+                        // For simple proto, swapping index usually forces LayoutGroup to re-arrange others.
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(_parentContainer as RectTransform);
+                    }
+                }
+            }
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            if (GameManager.Instance == null || GameManager.Instance.CurrentState != GameState.Comparing) return;
+
+            // Restore scale
+            transform.DOScale(Vector3.one, 0.2f);
+            if (_jar != null) _jar.raycastTarget = true;
+
+            // Force update layout
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_parentContainer as RectTransform);
         }
     }
 }

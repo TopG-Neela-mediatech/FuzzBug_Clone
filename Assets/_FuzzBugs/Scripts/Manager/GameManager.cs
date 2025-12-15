@@ -7,8 +7,17 @@ namespace TMKOC.FuzzBugClone
         Init,
         Sorting,
         Counting,
-        Comparing,
-        Graphing
+        FindLeast,
+        FindMost,
+        Comparing, // Ordering Phase
+        Graphing,
+        FindLeft,
+        FindRight,
+        FindTop,
+        FindBottom,
+        FindLargest,
+        FindSmallest,
+        GameEnd
     }
 
     public class GameManager : GenericSingleton<GameManager>
@@ -21,6 +30,36 @@ namespace TMKOC.FuzzBugClone
         private void Start()
         {
             ChangeState(GameState.Init);
+        }
+
+        private void OnEnable()
+        {
+            if (InteractionManager.Instance != null)
+                InteractionManager.Instance.OnQuestionCorrect += HandleQuestionCorrect;
+        }
+
+        private void OnDisable()
+        {
+            if (InteractionManager.Instance != null && InteractionManager.Instance != null)
+                InteractionManager.Instance.OnQuestionCorrect -= HandleQuestionCorrect;
+        }
+
+        private void HandleQuestionCorrect()
+        {
+            Debug.Log("GameManager: Handling Correct Answer transition.");
+            // Auto-advance state based on current? 
+            // Or let InteractionManager handle specific logic?
+            // Simple generic flow:
+            switch (CurrentState)
+            {
+                case GameState.FindLeast:
+                    ChangeState(GameState.FindMost);
+                    break;
+                case GameState.FindMost:
+                    ChangeState(GameState.Comparing);
+                    break;
+                // Add future answers here
+            }
         }
 
         public void ChangeState(GameState newState)
@@ -40,6 +79,15 @@ namespace TMKOC.FuzzBugClone
                     break;
                 case GameState.Counting:
                     Debug.Log("GameManager: All bugs sorted! Ready for Counting.");
+                    break;
+                case GameState.FindLeast:
+                    InteractionManager.Instance.PlayQuestion(QuestionType.FindLeast);
+                    break;
+                case GameState.FindMost:
+                    InteractionManager.Instance.PlayQuestion(QuestionType.FindMost);
+                    break;
+                case GameState.Comparing:
+                    Debug.Log("GameManager: Ordering Enabled.");
                     break;
                 // Other states will be handled later
             }
@@ -69,7 +117,8 @@ namespace TMKOC.FuzzBugClone
 
             if (_jarsFinishedCount >= System.Enum.GetValues(typeof(BugColorType)).Length)
             {
-                ChangeState(GameState.Comparing);
+                // Transition to FindLeast instead of Comparing
+                ChangeState(GameState.FindLeast);
             }
         }
 
