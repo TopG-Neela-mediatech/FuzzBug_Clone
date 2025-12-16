@@ -333,6 +333,8 @@ GameObject:
   - component: {fileID: 241273324285890480}
   - component: {fileID: 7449883688997306272}
   - component: {fileID: 1500639847830400760}
+  - component: {fileID: 6068978304860458330}
+  - component: {fileID: 575900718954937532}
   m_Layer: 0
   m_Name: Jar
   m_TagString: Untagged
@@ -391,3 +393,29 @@ MonoBehaviour:
   _gridSpacingY: 60
   _gridColumns: 3
   _startY: 0
+--- !u!225 &6068978304860458330
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7569890767001821125}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &575900718954937532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7569890767001821125}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6877b9ec63fed6e47b7f08ab4bd989c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _dragAlpha: 1
+  _returnSpeed: 10
