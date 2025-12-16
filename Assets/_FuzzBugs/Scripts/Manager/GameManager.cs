@@ -37,18 +37,29 @@ namespace TMKOC.FuzzBugClone
 
         private void Start()
         {
+            if (InteractionManager.Instance != null)
+            {
+                InteractionManager.Instance.OnQuestionCorrect += HandleQuestionCorrect;
+                Debug.Log("GameManager: Subscribed to OnQuestionCorrect");
+            }
+            else
+            {
+                Debug.LogError("GameManager: InteractionManager Instance is null in Start!");
+            }
+
             ChangeState(GameState.Init);
         }
 
+        /*
         private void OnEnable()
         {
-            if (InteractionManager.Instance != null)
-                InteractionManager.Instance.OnQuestionCorrect += HandleQuestionCorrect;
+            // Moving to Start to ensure Instance is ready
         }
+        */
 
-        private void OnDisable()
+        private void OnDestroy()
         {
-            if (InteractionManager.Instance != null && InteractionManager.Instance != null)
+            if (InteractionManager.Instance != null)
                 InteractionManager.Instance.OnQuestionCorrect -= HandleQuestionCorrect;
         }
 

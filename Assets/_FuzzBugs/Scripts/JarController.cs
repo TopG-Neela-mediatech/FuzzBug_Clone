@@ -12,6 +12,8 @@ namespace TMKOC.FuzzBugClone
         [SerializeField] private Image _jar;
         [SerializeField] private BugColorType _jarColorType;
         [SerializeField] private Transform _bugContainer;
+        [SerializeField] private Transform _jarEntryPointLeft; // Renamed for clarity
+        [SerializeField] private Transform _jarEntryPointRight; // Renamed for clarity
         [SerializeField] private float _dropVarianceX = 50f;
 
         [Header("UI Components")]
@@ -74,23 +76,62 @@ namespace TMKOC.FuzzBugClone
                             cg.blocksRaycasts = false;
                         }
 
-                        // Calculate Random Target Position
+                        // Calculate Random Target Position inside the jar
                         // Variance in X relative to the container's center (0,0,0)
                         float randomX = Random.Range(-_dropVarianceX, _dropVarianceX);
                         Vector3 targetPos = new Vector3(randomX, 0, 0);
 
-                        // DOTween Jump Animation
-                        // Jump to local target with power 300, 1 jump, duration 0.5s
-                        bug.transform.DOLocalJump(targetPos, 300f, 1, 0.5f).SetEase(Ease.OutQuad);
+                        // DOTween Sequence for Entry
+                        Sequence dropSequence = DOTween.Sequence();
 
+                        // If Entry Point is assigned, Jump there first
+                        // We prioritize Left point, but logic handles single or double points
+                        if (_jarEntryPointLeft != null)
+                        {
+                            Vector3 entryPos = _jarEntryPointLeft.position;
+                            
+                            // If Right point exists, pick random point between Left and Right
+                            if (_jarEntryPointRight != null)
+                            {
+                                entryPos = Vector3.Lerp(_jarEntryPointLeft.position, _jarEntryPointRight.position, Random.value);
+                            }
+
+                            // Jump to the entry point (World Position)
+                            // Power 1-2f, 1 jump, duration 0.6s, Linear Ease
+                            float jumpPower = Random.Range(1f, 2f);
+                            dropSequence.Append(bug.transform.DOJump(entryPos, jumpPower, 1, 0.6f).SetEase(Ease.Linear));
+                            
+                            // Then Fall/Move to final spot
+                            // Duration 0.5s, Linear/InQuad for falling effect
+                            dropSequence.Append(bug.transform.DOLocalMove(targetPos, 0.5f).SetEase(Ease.InQuad));
+                        }
+                        else
+                        {
+                            // Fallback if no entry point: Just Jump directly to target
+                            dropSequence.Append(bug.transform.DOLocalJump(targetPos, 300f, 1, 0.5f).SetEase(Ease.OutQuad));
+                        }
+                        
+                        // Concurrent Scaling
                         // Scale down slightly but preserve facing direction (Sign of X)
                         float currentSignX = Mathf.Sign(bug.transform.localScale.x);
                         Vector3 targetScale = new Vector3(0.5f * currentSignX, 0.5f, 0.5f);
+                        
+                        // Scale happens during the whole sequence or just the fall? 
+                        if (_jarEntryPointLeft != null)
+                        {
+                             // Start scaling slightly before the fall starts (during the end of the jump)
+                             dropSequence.Insert(0.5f, bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad));
+                        }
+                        else
+                        {
+                             dropSequence.Join(bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad));
+                        }
 
-                        bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad);
-
-                        // ANIMATION: Set Sorted State (StaticIdle)
-                        bug.SetSorted();
+                        // Callback when sequence complete
+                        dropSequence.OnComplete(() => {
+                             // ANIMATION: Set Sorted State (StaticIdle)
+                             bug.SetSorted();
+                        });
 
                         // Notify Manager
                         if (GameManager.Instance != null)
