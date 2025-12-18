@@ -150,10 +150,10 @@ namespace TMKOC.FuzzBugClone
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            // Only interact if in Counting state
-            if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Counting)
+            // Forward interaction to Parent JarController
+            // The JarController validates if the current GameState allows interaction
+            if (GameManager.Instance != null)
             {
-                // Find parent JarController
                 JarController jar = GetComponentInParent<JarController>();
                 if (jar != null)
                 {

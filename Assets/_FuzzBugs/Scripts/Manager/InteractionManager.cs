@@ -45,7 +45,24 @@ namespace TMKOC.FuzzBugClone
                 case QuestionType.FindMost:
                     promptText = ">>> QUESTION: Tap the Jar with the MOST number of Fuzz Bugs! <<<";
                     break;
-                // Add others later
+                case QuestionType.FindLeft:
+                    promptText = ">>> QUESTION: Tap the Fuzz Bug on the LEFT! <<<";
+                    break;
+                case QuestionType.FindRight:
+                    promptText = ">>> QUESTION: Tap the Fuzz Bug on the RIGHT! <<<";
+                    break;
+                case QuestionType.FindTop:
+                    promptText = ">>> QUESTION: Tap the Fuzz Bug on the TOP! <<<";
+                    break;
+                case QuestionType.FindBottom:
+                    promptText = ">>> QUESTION: Tap the Fuzz Bug on the BOTTOM! <<<";
+                    break;
+                case QuestionType.FindLargest:
+                    promptText = ">>> QUESTION: Tap the LARGEST Fuzz Bug! <<<";
+                    break;
+                case QuestionType.FindSmallest:
+                    promptText = ">>> QUESTION: Tap the SMALLEST Fuzz Bug! <<<";
+                    break;
             }
             if (!string.IsNullOrEmpty(promptText)) Debug.Log($"<color=yellow>{promptText}</color>");
 
@@ -77,8 +94,176 @@ namespace TMKOC.FuzzBugClone
         public void SubmitAnswer_Bug(FuzzBugController bug)
         {
             if (!_isQuestionActive) return;
-            // Implementation for Future Phases (Left/Right/etc)
-            Debug.Log($"Submitted Bug Answer: {bug.name}");
+            
+            bool isCorrect = false;
+            switch (_currentQuestion)
+            {
+                case QuestionType.FindLeft:
+                    isCorrect = CheckLeft(bug);
+                    break;
+                case QuestionType.FindRight:
+                    isCorrect = CheckRight(bug);
+                    break;
+                case QuestionType.FindTop:
+                    isCorrect = CheckTop(bug);
+                    break;
+                case QuestionType.FindBottom:
+                    isCorrect = CheckBottom(bug);
+                    break;
+                case QuestionType.FindLargest:
+                    isCorrect = CheckLargest(bug);
+                    break;
+                case QuestionType.FindSmallest:
+                    isCorrect = CheckSmallest(bug);
+                    break;
+                default:
+                    Debug.LogWarning("SubmitAnswer_Bug called for non-bug question type.");
+                    break;
+            }
+
+            if (isCorrect)
+            {
+                Debug.Log("<color=green>Correct Bug Tapped!</color>");
+                // Animate correct bug?
+                bug.PlayDance();
+                _isQuestionActive = false;
+                OnQuestionCorrect?.Invoke();
+            }
+            else
+            {
+                Debug.Log("<color=red>Incorrect Bug Tapped!</color>");
+                OnQuestionIncorrect?.Invoke();
+            }
+        }
+
+        private bool CheckLeft(FuzzBugController clickedBug)
+        {
+            // Find the bug with minimum X (world position) in the active jar
+            // We need access to the active jar's bugs. 
+            // InteractionManager doesn't track active jar directly, GameManager does.
+            // Or we check all bugs in the clicked bug's parent? 
+            // The clicked bug is in the active jar's container.
+            
+            Transform container = clickedBug.transform.parent;
+            if (container == null) return false;
+
+            float minX = float.MaxValue;
+            Transform leftMost = null;
+
+            foreach (Transform t in container)
+            {
+                if (t.position.x < minX)
+                {
+                    minX = t.position.x;
+                    leftMost = t;
+                }
+            }
+
+            return leftMost == clickedBug.transform;
+        }
+
+        private bool CheckRight(FuzzBugController clickedBug)
+        {
+            Transform container = clickedBug.transform.parent;
+            if (container == null) return false;
+
+            float maxX = float.MinValue;
+            Transform rightMost = null;
+
+            foreach (Transform t in container)
+            {
+                if (t.position.x > maxX)
+                {
+                    maxX = t.position.x;
+                    rightMost = t;
+                }
+            }
+
+            return rightMost == clickedBug.transform;
+        }
+
+        private bool CheckTop(FuzzBugController clickedBug)
+        {
+            Transform container = clickedBug.transform.parent;
+            if (container == null) return false;
+
+            float maxY = float.MinValue;
+            Transform topMost = null;
+
+            foreach (Transform t in container)
+            {
+                if (t.position.y > maxY)
+                {
+                    maxY = t.position.y;
+                    topMost = t;
+                }
+            }
+            return topMost == clickedBug.transform;
+        }
+
+        private bool CheckBottom(FuzzBugController clickedBug)
+        {
+            Transform container = clickedBug.transform.parent;
+            if (container == null) return false;
+
+            float minY = float.MaxValue;
+            Transform bottomMost = null;
+
+            foreach (Transform t in container)
+            {
+                if (t.position.y < minY)
+                {
+                    minY = t.position.y;
+                    bottomMost = t;
+                }
+            }
+            return bottomMost == clickedBug.transform;
+        }
+
+        private bool CheckLargest(FuzzBugController clickedBug)
+        {
+            Transform container = clickedBug.transform.parent;
+            if (container == null) return false;
+
+            float maxScale = float.MinValue;
+            Transform largest = null;
+
+            foreach (Transform t in container)
+            {
+                // Assuming uniform scale, check X
+                float scale = t.localScale.x; 
+                // Note: localScale might be negative if flipped, so take Abs
+                scale = Mathf.Abs(scale);
+
+                if (scale > maxScale)
+                {
+                    maxScale = scale;
+                    largest = t;
+                }
+            }
+            // Add tolerance?
+            return largest == clickedBug.transform;
+        }
+
+        private bool CheckSmallest(FuzzBugController clickedBug)
+        {
+            Transform container = clickedBug.transform.parent;
+            if (container == null) return false;
+
+            float minScale = float.MaxValue;
+            Transform smallest = null;
+
+            foreach (Transform t in container)
+            {
+                float scale = Mathf.Abs(t.localScale.x);
+
+                if (scale < minScale)
+                {
+                    minScale = scale;
+                    smallest = t;
+                }
+            }
+            return smallest == clickedBug.transform;
         }
 
         private bool CheckLeast(JarController jar)

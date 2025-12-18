@@ -5,6 +5,7 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
+.utmp/
 
 # MemoryCaptures can get excessive
 /[Mm]emoryCaptures/

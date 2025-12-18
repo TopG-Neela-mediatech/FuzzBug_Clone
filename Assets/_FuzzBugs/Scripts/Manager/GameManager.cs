@@ -11,6 +11,7 @@ namespace TMKOC.FuzzBugClone
         FindLeast, // before sorting by count starts we first ask the user which one has least
         FindMost,  // and which has most, enforcing the ascending sort by count
         CountSorting, // Ordering Phase: Sorting jars in ascending order based on count
+        SelectJarToQuiz, // User selects a jar to start the spatial quiz sequence
         Graphing,
         FindLeft,
         FindRight,
@@ -77,13 +78,34 @@ namespace TMKOC.FuzzBugClone
                 case GameState.FindMost:
                     ChangeState(GameState.CountSorting);
                     break;
-                // Add future answers here
+                case GameState.FindLeft:
+                    ChangeState(GameState.FindRight);
+                    break;
+                case GameState.FindRight:
+                    ChangeState(GameState.FindTop); // Go to Vertical Phase
+                    break;
+                case GameState.FindTop:
+                    ChangeState(GameState.FindBottom);
+                    break;
+                case GameState.FindBottom:
+                    ChangeState(GameState.FindLargest); // Go to Size Phase
+                    break;
+                case GameState.FindLargest:
+                    ChangeState(GameState.FindSmallest);
+                    break;
+                case GameState.FindSmallest:
+                    // Loop back to select another jar? or End?
+                    // User said "ending with us showing the end panel"
+                    Debug.Log("GameManager: Sequence Complete. Moving to End.");
+                    ChangeState(GameState.GameEnd);
+                    break;
             }
         }
 
         [Header("Scene References")]
         [SerializeField] private CharacterSpawner _characterSpawner; // Reference if needed
         [SerializeField] private Transform _jarSlotsContainer; // Parent of 4 JarSlots
+        [SerializeField] private GameObject _endPanel; // Added per user request
 
         public void ChangeState(GameState newState)
         {
@@ -95,6 +117,8 @@ namespace TMKOC.FuzzBugClone
                 case GameState.Init:
                     LevelDataManager.Instance.GenerateLevelData();
                     CalculateTotalBugs();
+                    // Ensure End Panel is hidden
+                    if (_endPanel != null) _endPanel.SetActive(false);
                     ChangeState(GameState.ColorSorting);
                     break;
                 case GameState.ColorSorting:
@@ -114,7 +138,51 @@ namespace TMKOC.FuzzBugClone
                     Debug.Log("GameManager: Ordering Enabled.");
                     ActivateJarOrdering();
                     break;
-                // Other states will be handled later
+                case GameState.SelectJarToQuiz:
+                    Debug.Log("GameManager: Select a Jar to start Quiz.");
+                    // Prompt?
+                    break;
+                case GameState.FindLeft:
+                    if (_activeJar != null)
+                    {
+                        _activeJar.ArrangeBugsHorizontally(false); // Normal Size
+                        InteractionManager.Instance.PlayQuestion(QuestionType.FindLeft);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("No Active Jar for FindLeft!");
+                    }
+                    break;
+                case GameState.FindRight:
+                    InteractionManager.Instance.PlayQuestion(QuestionType.FindRight);
+                    break;
+                case GameState.FindTop:
+                    if (_activeJar != null)
+                    {
+                        _activeJar.ArrangeBugsVertically();
+                        InteractionManager.Instance.PlayQuestion(QuestionType.FindTop);
+                    }
+                    break;
+                case GameState.FindBottom:
+                    InteractionManager.Instance.PlayQuestion(QuestionType.FindBottom);
+                    break;
+                case GameState.FindLargest:
+                    if (_activeJar != null)
+                    {
+                        _activeJar.ArrangeBugsHorizontally(true); // Randomize Size
+                        InteractionManager.Instance.PlayQuestion(QuestionType.FindLargest);
+                    }
+                    break;
+                case GameState.FindSmallest:
+                    InteractionManager.Instance.PlayQuestion(QuestionType.FindSmallest);
+                    break;
+                case GameState.GameEnd:
+                    Debug.Log("Game Over!");
+                    if (_endPanel != null)
+                    {
+                        _endPanel.SetActive(true);
+                    }
+                    break;
             }
 
             OnStateChange?.Invoke(CurrentState);
@@ -218,14 +286,23 @@ namespace TMKOC.FuzzBugClone
                 if (isCorrectInfo)
                 {
                     Debug.Log("<color=green>SUCCESS: Jars are sorted in Ascending Order!</color>");
-                    // Transition to next state? Graphing?
-                    // ChangeState(GameState.Graphing);
+                    // Transition to Selection Phase
+                    ChangeState(GameState.SelectJarToQuiz);
                 }
                 else
                 {
                     Debug.Log("<color=red>FAIL: Jars are NOT in Ascending Order.</color>");
                 }
             }
+        }
+
+        public void StartQuizForJar(JarController jar)
+        {
+            if (CurrentState != GameState.SelectJarToQuiz) return;
+            
+            SetActiveJar(jar);
+            Debug.Log($"GameManager: Starting Quiz for {jar.gameObject.name}");
+            ChangeState(GameState.FindLeft);
         }
 
         private void CalculateTotalBugs()

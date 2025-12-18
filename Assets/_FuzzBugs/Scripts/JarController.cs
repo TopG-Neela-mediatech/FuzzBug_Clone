@@ -14,6 +14,8 @@ namespace TMKOC.FuzzBugClone
         [SerializeField] private Transform _bugContainer;
         [SerializeField] private Transform _jarEntryPointLeft; // Renamed for clarity
         [SerializeField] private Transform _jarEntryPointRight; // Renamed for clarity
+        [SerializeField] private Transform _horizontalLineStart; // Added for Horizontal Arrangement
+        [SerializeField] private Transform _verticalLineStart; // Added for Vertical Arrangement
         [SerializeField] private float _dropVarianceX = 50f;
 
         [Header("UI Components")]
@@ -21,7 +23,8 @@ namespace TMKOC.FuzzBugClone
 
         [Header("Grid Layout Settings")]
         [SerializeField] private float _gridSpacingX = 80f;
-        [SerializeField] private float _gridSpacingY = 80f;
+        [SerializeField] private float _arrangementSpacingX = 120f; // New separate spacing for line arrangements to prevent overlap
+        [SerializeField] private float _gridSpacingY = 45f; // Decreased from 80f to 45f per user request
         [SerializeField] private int _gridColumns = 3;
         [SerializeField] private float _startY = 0f;
 
@@ -161,6 +164,13 @@ namespace TMKOC.FuzzBugClone
                 return;
             }
 
+            // Selection Phase
+            if (GameManager.Instance.CurrentState == GameState.SelectJarToQuiz)
+            {
+                GameManager.Instance.StartQuizForJar(this);
+                return;
+            }
+
             // Only start layout if we are in Counting phase and not already counting this jar (or finished)
             if (GameManager.Instance.CurrentState == GameState.Counting && !_isCounting && !_isFinished)
             {
@@ -204,6 +214,21 @@ namespace TMKOC.FuzzBugClone
 
         public void OnManualBugTapped(FuzzBugController bug)
         {
+            // Spatial Question Interactions
+            if (GameManager.Instance.CurrentState == GameState.FindLeft ||
+                GameManager.Instance.CurrentState == GameState.FindRight ||
+                GameManager.Instance.CurrentState == GameState.FindTop ||
+                GameManager.Instance.CurrentState == GameState.FindBottom ||
+                GameManager.Instance.CurrentState == GameState.FindLargest ||
+                GameManager.Instance.CurrentState == GameState.FindSmallest)
+            {
+                 if (InteractionManager.Instance != null)
+                 {
+                     InteractionManager.Instance.SubmitAnswer_Bug(bug);
+                 }
+                 return;
+            }
+
             if (!_isCounting) return;
             if (bug.IsCounted) return;
 
@@ -323,6 +348,82 @@ namespace TMKOC.FuzzBugClone
                 {
                     bug.PlayDance();
                 }
+            }
+        }
+
+        public void ArrangeBugsHorizontally(bool randomizeSize = false)
+        {
+            if (_bugContainer == null || _horizontalLineStart == null) return;
+            
+            int childCount = _bugContainer.childCount;
+            if (childCount == 0) return;
+
+            // Centered Horizontal Layout
+            // Total width = (count - 1) * spacing
+            // Start X = CenterX - TotalWidth / 2
+            float totalWidth = (childCount - 1) * _arrangementSpacingX; // Use new Spacing
+            float startX = _horizontalLineStart.localPosition.x - (totalWidth / 2f);
+            float fixedY = _horizontalLineStart.localPosition.y;
+
+            for (int i = 0; i < childCount; i++)
+            {
+                Transform child = _bugContainer.GetChild(i);
+                
+                float targetX = startX + (i * _arrangementSpacingX); // Use new Spacing
+                Vector3 targetPos = new Vector3(targetX, fixedY, 0);
+
+                // We need to convert this targetPos...
+                Vector3 worldTarget = _horizontalLineStart.parent.TransformPoint(new Vector3(targetX, fixedY, _horizontalLineStart.localPosition.z));
+                Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
+                
+                child.DOLocalMove(localTargetInContainer, 0.5f).SetEase(Ease.OutBack);
+                child.DORotate(Vector3.zero, 0.3f);
+
+                // Size Logic
+                if (randomizeSize)
+                {
+                    float randomScale = Random.Range(0.4f, 1.1f);
+                    child.DOScale(Vector3.one * randomScale, 0.5f).SetEase(Ease.OutBack);
+                }
+                else
+                {
+                    // Reset to standard size if needed, or keep current? 
+                    // Usually we want to reset to standard "sorted" size which seemed to be 0.6f or 0.5f
+                    child.DOScale(Vector3.one * 0.6f, 0.5f).SetEase(Ease.OutBack);
+                }
+            }
+        }
+
+        public void ArrangeBugsVertically()
+        {
+            if (_bugContainer == null || _verticalLineStart == null) return;
+
+            int childCount = _bugContainer.childCount;
+            if (childCount == 0) return;
+
+            // Centered Vertical Layout (matching Horizontal logic)
+            // Total height = (count - 1) * spacing
+            // Start Y = CenterY - TotalHeight / 2
+            float totalHeight = (childCount - 1) * _gridSpacingY;
+            float startY = _verticalLineStart.localPosition.y - (totalHeight / 2f);
+            float fixedX = _verticalLineStart.localPosition.x;
+            
+            for (int i = 0; i < childCount; i++)
+            {
+                Transform child = _bugContainer.GetChild(i);
+                
+                float targetY = startY + (i * _gridSpacingY);
+                Vector3 targetPos = new Vector3(fixedX, targetY, 0);
+                
+                // Convert to Parent (Jar) space -> Container space
+                Vector3 worldTarget = _verticalLineStart.parent.TransformPoint(new Vector3(fixedX, targetY, _verticalLineStart.localPosition.z));
+                Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
+
+                child.DOLocalMove(localTargetInContainer, 0.5f).SetEase(Ease.OutBack);
+                child.DORotate(Vector3.zero, 0.3f);
+                
+                // Force scale 0.6f for uniformity
+                child.DOScale(Vector3.one * 0.6f, 0.5f).SetEase(Ease.OutBack);
             }
         }
 
