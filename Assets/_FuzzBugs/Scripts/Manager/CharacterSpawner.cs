@@ -13,10 +13,12 @@ namespace TMKOC.FuzzBugClone
 
     public class CharacterSpawner : GenericSingleton<CharacterSpawner>
     {
-        [SerializeField] private CharacterController _characterPrefab;
+        [SerializeField] private BugCharacterController _characterPrefab;
         [SerializeField] private RectTransform _spawnArea;
         [SerializeField] private float _moveSpeed = 100f;
         [SerializeField] private List<BugConfig> _bugConfigs;
+
+
 
         public void SpawnCharacters()
         {

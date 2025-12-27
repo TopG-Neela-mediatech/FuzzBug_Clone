@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace TMKOC.FuzzBugClone
 {
-    public class CharacterController : MonoBehaviour, IPointerClickHandler
+    public class BugCharacterController : MonoBehaviour, IPointerClickHandler
     {
         [SerializeField] private float _moveSpeed = 100f;
         [SerializeField] private Animator _animator;
@@ -17,11 +17,10 @@ namespace TMKOC.FuzzBugClone
         private Vector2 _moveDirection;
         private RectTransform _parentRect;
 
-        private const string ANIM_WALK = "Walk";
         private const string ANIM_IDLE = "Idle";
-        private const string ANIM_PICKED_UP = "PickedUp";
-        private const string ANIM_STATIC_IDLE = "StaticIdle";
-        private const string ANIM_DANCE = "Dance";
+        private const string ANIM_WALK = "Walk";
+        private const string ANIM_PICKED_UP = "DragPose";
+        private const string ANIM_DANCE = "Celebration";
 
         private void Awake()
         {
@@ -67,6 +66,19 @@ namespace TMKOC.FuzzBugClone
             if (_image != null && sprite != null)
             {
                 _image.sprite = sprite;
+            }
+
+            // Fix: Enforce facing direction based on movement
+            if (startDirection.x != 0)
+            {
+                Vector3 scale = _rectTransform.localScale;
+                
+                // Sprite faces Right by default.
+                // If moving Right (x > 0), Scale X should be positive.
+                // If moving Left (x < 0), Scale X should be negative.
+                scale.x = Mathf.Abs(scale.x) * Mathf.Sign(startDirection.x); 
+                
+                _rectTransform.localScale = scale;
             }
         }
 
@@ -126,7 +138,7 @@ namespace TMKOC.FuzzBugClone
 
         public void SetSorted()
         {
-            PlayAnimation(ANIM_STATIC_IDLE);
+            PlayAnimation(ANIM_IDLE);
         }
 
         public void PlayDance()
@@ -136,7 +148,7 @@ namespace TMKOC.FuzzBugClone
 
         public void PlayStaticIdle()
         {
-            PlayAnimation(ANIM_STATIC_IDLE);
+            PlayAnimation(ANIM_IDLE);
         }
 
         private void PlayAnimation(string stateName)

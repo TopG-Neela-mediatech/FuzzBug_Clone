@@ -16,25 +16,29 @@ namespace TMKOC.FuzzBugClone
         [SerializeField] private Transform _jarEntryPointRight; // Renamed for clarity
         [SerializeField] private Transform _horizontalLineStart; // Added for Horizontal Arrangement
         [SerializeField] private Transform _verticalLineStart; // Added for Vertical Arrangement
-        [SerializeField] private float _dropVarianceX = 50f;
+        [SerializeField] private float _dropVarianceX = 60f;
         [SerializeField] private float _droppedBugScale = 0.5f;
-        [SerializeField] private float _arrangedBugScale = 0.6f;
-        [SerializeField] private float _randomSizeYOffset = 0f;
+        [SerializeField] private float _arrangedBugScale = 0.5f;
+        [SerializeField] private float _randomSizeYOffset = -15f;
 
         [Header("UI Components")]
-        [SerializeField] private GameObject _countTextParent; // Reference to the counter text
-        [SerializeField] private TMP_Text _countText; // Reference to the counter text
+        [SerializeField] private GameObject _countTextParent;
+        [SerializeField] private TextMeshProUGUI _countText;
 
         [Header("Grid Layout Settings")]
-        [SerializeField] private float _gridSpacingX = 80f;
-        [SerializeField] private float _arrangementSpacingX = 120f; // New separate spacing for line arrangements to prevent overlap
-        [SerializeField] private float _gridSpacingY = 45f; // Decreased from 80f to 45f per user request
+        [SerializeField] private float _gridSpacingX = 70f;
+        [SerializeField] private float _arrangementSpacingX = 120f;
+        [SerializeField] private float _gridSpacingY = 60f;
         [SerializeField] private int _gridColumns = 3;
         [SerializeField] private float _startY = 0f;
 
+        [Header("Animation Settings")]
+        [SerializeField] private float _gridLayoutDuration = 0.5f;
+        [SerializeField] private float _horizontalLayoutDuration = 0.5f;
+        [SerializeField] private float _verticalLayoutDuration = 0.5f;
+
         private Material _jarMaterial;
         private bool _isCounting = false;
-        private bool _hasCounted = false;
 
         public BugColorType JarColor { get { return _jarColorType; } }
 
@@ -70,7 +74,7 @@ namespace TMKOC.FuzzBugClone
                     return;
                 }
 
-                CharacterController bug = eventData.pointerDrag.GetComponent<CharacterController>();
+                BugCharacterController bug = eventData.pointerDrag.GetComponent<BugCharacterController>();
                 Draggable draggable = eventData.pointerDrag.GetComponent<Draggable>();
 
                 if (bug != null && draggable != null)
@@ -231,12 +235,12 @@ namespace TMKOC.FuzzBugClone
             // Reset bugs "IsCounted" status? 
             foreach (Transform child in _bugContainer)
             {
-                var bug = child.GetComponent<CharacterController>();
+                var bug = child.GetComponent<BugCharacterController>();
                 if (bug != null) bug.IsCounted = false;
             }
         }
 
-        public void OnManualBugTapped(CharacterController bug)
+        public void OnManualBugTapped(BugCharacterController bug)
         {
             // Spatial Question Interactions
             if (GameManager.Instance.CurrentState == GameState.FindLeft ||
@@ -296,7 +300,7 @@ namespace TMKOC.FuzzBugClone
 
             foreach (Transform child in _bugContainer)
             {
-                CharacterController bug = child.GetComponent<CharacterController>();
+                BugCharacterController bug = child.GetComponent<BugCharacterController>();
                 if (bug != null)
                 {
                     bug.PlayStaticIdle();
@@ -314,10 +318,28 @@ namespace TMKOC.FuzzBugClone
             }
         }
 
-        // Renamed/Replaced ResetBugAnimations to this new method logic
         public void ResetBugAnimations()
         {
-            ResetCountingState();
+            if (_isFinished)
+            {
+                // If finished, just stop dancing, but keep position
+                if (_bugContainer != null)
+                {
+                    foreach (Transform child in _bugContainer)
+                    {
+                        BugCharacterController bug = child.GetComponent<BugCharacterController>();
+                        if (bug != null)
+                        {
+                            bug.PlayStaticIdle();
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // If not finished, full reset (messy pile)
+                ResetCountingState();
+            }
         }
 
         private void ArrangeBugsInGrid()
@@ -356,9 +378,9 @@ namespace TMKOC.FuzzBugClone
 
 
                 // Animate to grid position
-                child.DOLocalMove(targetPos, 0.5f).SetEase(Ease.OutBack);
+                child.DOLocalMove(targetPos, _gridLayoutDuration).SetEase(Ease.OutBack);
                 child.DORotate(Vector3.zero, 0.3f);
-                child.DOScale(Vector3.one * _arrangedBugScale, 0.5f);
+                child.DOScale(Vector3.one * _arrangedBugScale, _gridLayoutDuration);
             }
         }
 
@@ -367,7 +389,7 @@ namespace TMKOC.FuzzBugClone
             if (_bugContainer == null) return;
             foreach (Transform child in _bugContainer)
             {
-                CharacterController bug = child.GetComponent<CharacterController>();
+                BugCharacterController bug = child.GetComponent<BugCharacterController>();
                 if (bug != null)
                 {
                     bug.PlayDance();
@@ -408,7 +430,7 @@ namespace TMKOC.FuzzBugClone
                 Vector3 worldTarget = _horizontalLineStart.parent.TransformPoint(new Vector3(targetX, currentFixedY, _horizontalLineStart.localPosition.z));
                 Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
 
-                child.DOLocalMove(localTargetInContainer, 0.5f).SetEase(Ease.OutBack);
+                child.DOLocalMove(localTargetInContainer, _horizontalLayoutDuration).SetEase(Ease.OutBack);
                 child.DORotate(Vector3.zero, 0.3f);
 
                 // Size Logic
@@ -421,13 +443,13 @@ namespace TMKOC.FuzzBugClone
                     }
 
                     float randomScale = Random.Range(0.4f, 1.1f);
-                    child.DOScale(Vector3.one * randomScale, 0.5f).SetEase(Ease.OutBack);
+                    child.DOScale(Vector3.one * randomScale, _horizontalLayoutDuration).SetEase(Ease.OutBack);
                 }
                 else
                 {
                     // Reset to standard size if needed, or keep current? 
                     // Usually we want to reset to standard "sorted" size which seemed to be 0.6f or 0.5f
-                    child.DOScale(Vector3.one * _arrangedBugScale, 0.5f).SetEase(Ease.OutBack);
+                    child.DOScale(Vector3.one * _arrangedBugScale, _horizontalLayoutDuration).SetEase(Ease.OutBack);
                 }
             }
         }
@@ -458,11 +480,11 @@ namespace TMKOC.FuzzBugClone
                 Vector3 worldTarget = _verticalLineStart.parent.TransformPoint(new Vector3(fixedX, targetY, _verticalLineStart.localPosition.z));
                 Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
 
-                child.DOLocalMove(localTargetInContainer, 0.5f).SetEase(Ease.OutBack);
+                child.DOLocalMove(localTargetInContainer, _verticalLayoutDuration).SetEase(Ease.OutBack);
                 child.DORotate(Vector3.zero, 0.3f);
 
                 // Force scale 0.6f for uniformity
-                child.DOScale(Vector3.one * _arrangedBugScale, 0.5f).SetEase(Ease.OutBack);
+                child.DOScale(Vector3.one * _arrangedBugScale, _verticalLayoutDuration).SetEase(Ease.OutBack);
             }
         }
 

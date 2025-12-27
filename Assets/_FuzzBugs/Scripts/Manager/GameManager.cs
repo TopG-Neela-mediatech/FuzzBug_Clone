@@ -31,7 +31,6 @@ namespace TMKOC.FuzzBugClone
         public static event Action<GameState> OnStateChange;
 
         [Header("Scene References")]
-        [SerializeField] private CharacterSpawner _characterSpawner;
         [SerializeField] private Transform _jarSlotsContainer;
         [SerializeField] private GameObject _endPanel;
 
@@ -125,6 +124,9 @@ namespace TMKOC.FuzzBugClone
 
         private void HandleInitState()
         {
+            _jarsFinishedCount = 0;
+            _bugsSortedCount = 0;
+            
             LevelDataManager.Instance.GenerateLevelData();
             CalculateTotalBugs();
             
@@ -136,7 +138,8 @@ namespace TMKOC.FuzzBugClone
 
         private void HandleColorSortingState()
         {
-            CharacterSpawner.Instance.SpawnCharacters();
+            if (CharacterSpawner.Instance != null)
+                CharacterSpawner.Instance.SpawnCharacters();
         }
 
         private void HandleCountSortingState()
