@@ -36,6 +36,9 @@ namespace TMKOC.FuzzBugClone
                     ToggleJarsRaycast(true); // Ensure raycasts are on for dragging
                     ToggleJarsDraggable(true);
                     break;
+                case GameState.SelectJarToQuiz:
+                    ToggleJarsDraggable(false);
+                    break;
                 case GameState.Graphing:
                     break;
                 case GameState.FindLeft:

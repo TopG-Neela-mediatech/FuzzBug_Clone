@@ -17,8 +17,12 @@ namespace TMKOC.FuzzBugClone
         [SerializeField] private Transform _horizontalLineStart; // Added for Horizontal Arrangement
         [SerializeField] private Transform _verticalLineStart; // Added for Vertical Arrangement
         [SerializeField] private float _dropVarianceX = 50f;
+        [SerializeField] private float _droppedBugScale = 0.5f;
+        [SerializeField] private float _arrangedBugScale = 0.6f;
+        [SerializeField] private float _randomSizeYOffset = 0f;
 
         [Header("UI Components")]
+        [SerializeField] private GameObject _countTextParent; // Reference to the counter text
         [SerializeField] private TMP_Text _countText; // Reference to the counter text
 
         [Header("Grid Layout Settings")]
@@ -38,7 +42,11 @@ namespace TMKOC.FuzzBugClone
         {
             // Create runtime instance of the material
             _jarMaterial = _jar.materialForRendering;
-            if (_countText != null) _countText.text = ""; // Clear initially
+            if (_countText != null)
+            {
+                _countText.text = ""; // Clear initially
+                _countTextParent.gameObject.SetActive(false);
+            }
         }
 
         private bool _isFinished = false; // Track if counting is fully complete
@@ -49,7 +57,20 @@ namespace TMKOC.FuzzBugClone
             Debug.Log($"OnDrop called on {gameObject.name}");
             if (eventData.pointerDrag != null)
             {
-                FuzzBugController bug = eventData.pointerDrag.GetComponent<FuzzBugController>();
+                // check if the dropped item is a Jar (for Swapping)
+                JarController droppedJar = eventData.pointerDrag.GetComponent<JarController>();
+                if (droppedJar != null)
+                {
+                    // Pass the drop event to the parent Slot to handle the swap
+                    JarSlot parentSlot = GetComponentInParent<JarSlot>();
+                    if (parentSlot != null)
+                    {
+                        parentSlot.OnDrop(eventData);
+                    }
+                    return;
+                }
+
+                CharacterController bug = eventData.pointerDrag.GetComponent<CharacterController>();
                 Draggable draggable = eventData.pointerDrag.GetComponent<Draggable>();
 
                 if (bug != null && draggable != null)
@@ -92,7 +113,7 @@ namespace TMKOC.FuzzBugClone
                         if (_jarEntryPointLeft != null)
                         {
                             Vector3 entryPos = _jarEntryPointLeft.position;
-                            
+
                             // If Right point exists, pick random point between Left and Right
                             if (_jarEntryPointRight != null)
                             {
@@ -103,7 +124,7 @@ namespace TMKOC.FuzzBugClone
                             // Power 1-2f, 1 jump, duration 0.6s, Linear Ease
                             float jumpPower = Random.Range(1f, 2f);
                             dropSequence.Append(bug.transform.DOJump(entryPos, jumpPower, 1, 0.6f).SetEase(Ease.Linear));
-                            
+
                             // Then Fall/Move to final spot
                             // Duration 0.5s, Linear/InQuad for falling effect
                             dropSequence.Append(bug.transform.DOLocalMove(targetPos, 0.5f).SetEase(Ease.InQuad));
@@ -113,27 +134,28 @@ namespace TMKOC.FuzzBugClone
                             // Fallback if no entry point: Just Jump directly to target
                             dropSequence.Append(bug.transform.DOLocalJump(targetPos, 300f, 1, 0.5f).SetEase(Ease.OutQuad));
                         }
-                        
+
                         // Concurrent Scaling
                         // Scale down slightly but preserve facing direction (Sign of X)
                         float currentSignX = Mathf.Sign(bug.transform.localScale.x);
-                        Vector3 targetScale = new Vector3(0.5f * currentSignX, 0.5f, 0.5f);
-                        
+                        Vector3 targetScale = new Vector3(_droppedBugScale * currentSignX, _droppedBugScale, _droppedBugScale);
+
                         // Scale happens during the whole sequence or just the fall? 
                         if (_jarEntryPointLeft != null)
                         {
-                             // Start scaling slightly before the fall starts (during the end of the jump)
-                             dropSequence.Insert(0.5f, bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad));
+                            // Start scaling slightly before the fall starts (during the end of the jump)
+                            dropSequence.Insert(0.5f, bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad));
                         }
                         else
                         {
-                             dropSequence.Join(bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad));
+                            dropSequence.Join(bug.transform.DOScale(targetScale, 0.5f).SetEase(Ease.OutQuad));
                         }
 
                         // Callback when sequence complete
-                        dropSequence.OnComplete(() => {
-                             // ANIMATION: Set Sorted State (StaticIdle)
-                             bug.SetSorted();
+                        dropSequence.OnComplete(() =>
+                        {
+                            // ANIMATION: Set Sorted State (StaticIdle)
+                            bug.SetSorted();
                         });
 
                         // Notify Manager
@@ -200,6 +222,8 @@ namespace TMKOC.FuzzBugClone
             // So yes, reset count to 0.
             if (_countText != null)
             {
+
+                _countTextParent.gameObject.SetActive(true);
                 _countText.text = "0";
                 _countText.color = Color.white; // Reset color
             }
@@ -207,12 +231,12 @@ namespace TMKOC.FuzzBugClone
             // Reset bugs "IsCounted" status? 
             foreach (Transform child in _bugContainer)
             {
-                var bug = child.GetComponent<FuzzBugController>();
+                var bug = child.GetComponent<CharacterController>();
                 if (bug != null) bug.IsCounted = false;
             }
         }
 
-        public void OnManualBugTapped(FuzzBugController bug)
+        public void OnManualBugTapped(CharacterController bug)
         {
             // Spatial Question Interactions
             if (GameManager.Instance.CurrentState == GameState.FindLeft ||
@@ -222,11 +246,11 @@ namespace TMKOC.FuzzBugClone
                 GameManager.Instance.CurrentState == GameState.FindLargest ||
                 GameManager.Instance.CurrentState == GameState.FindSmallest)
             {
-                 if (InteractionManager.Instance != null)
-                 {
-                     InteractionManager.Instance.SubmitAnswer_Bug(bug);
-                 }
-                 return;
+                if (InteractionManager.Instance != null)
+                {
+                    InteractionManager.Instance.SubmitAnswer_Bug(bug);
+                }
+                return;
             }
 
             if (!_isCounting) return;
@@ -272,7 +296,7 @@ namespace TMKOC.FuzzBugClone
 
             foreach (Transform child in _bugContainer)
             {
-                FuzzBugController bug = child.GetComponent<FuzzBugController>();
+                CharacterController bug = child.GetComponent<CharacterController>();
                 if (bug != null)
                 {
                     bug.PlayStaticIdle();
@@ -284,7 +308,7 @@ namespace TMKOC.FuzzBugClone
                     Vector3 targetPos = new Vector3(randomX, 0, 0);
 
                     bug.transform.DOLocalMove(targetPos, 0.5f).SetEase(Ease.OutQuad);
-                    bug.transform.DOScale(Vector3.one * 0.5f, 0.5f); // Reset scale
+                    bug.transform.DOScale(Vector3.one * _droppedBugScale, 0.5f); // Reset scale
                     bug.transform.localRotation = Quaternion.identity; // Reset rotation
                 }
             }
@@ -334,7 +358,7 @@ namespace TMKOC.FuzzBugClone
                 // Animate to grid position
                 child.DOLocalMove(targetPos, 0.5f).SetEase(Ease.OutBack);
                 child.DORotate(Vector3.zero, 0.3f);
-                child.DOScale(Vector3.one * 0.6f, 0.5f);
+                child.DOScale(Vector3.one * _arrangedBugScale, 0.5f);
             }
         }
 
@@ -343,7 +367,7 @@ namespace TMKOC.FuzzBugClone
             if (_bugContainer == null) return;
             foreach (Transform child in _bugContainer)
             {
-                FuzzBugController bug = child.GetComponent<FuzzBugController>();
+                CharacterController bug = child.GetComponent<CharacterController>();
                 if (bug != null)
                 {
                     bug.PlayDance();
@@ -354,7 +378,7 @@ namespace TMKOC.FuzzBugClone
         public void ArrangeBugsHorizontally(bool randomizeSize = false)
         {
             if (_bugContainer == null || _horizontalLineStart == null) return;
-            
+
             int childCount = _bugContainer.childCount;
             if (childCount == 0) return;
 
@@ -368,20 +392,34 @@ namespace TMKOC.FuzzBugClone
             for (int i = 0; i < childCount; i++)
             {
                 Transform child = _bugContainer.GetChild(i);
-                
+
                 float targetX = startX + (i * _arrangementSpacingX); // Use new Spacing
-                Vector3 targetPos = new Vector3(targetX, fixedY, 0);
+                float currentFixedY = fixedY;
+
+                // Size Logic Pre-calculation for Position
+                if (randomizeSize)
+                {
+                   currentFixedY += _randomSizeYOffset;
+                }
+
+                Vector3 targetPos = new Vector3(targetX, currentFixedY, 0);
 
                 // We need to convert this targetPos...
-                Vector3 worldTarget = _horizontalLineStart.parent.TransformPoint(new Vector3(targetX, fixedY, _horizontalLineStart.localPosition.z));
+                Vector3 worldTarget = _horizontalLineStart.parent.TransformPoint(new Vector3(targetX, currentFixedY, _horizontalLineStart.localPosition.z));
                 Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
-                
+
                 child.DOLocalMove(localTargetInContainer, 0.5f).SetEase(Ease.OutBack);
                 child.DORotate(Vector3.zero, 0.3f);
 
                 // Size Logic
                 if (randomizeSize)
                 {
+                    // Adjust pivot to bottom so scaling grows from feet up
+                    if (child.TryGetComponent<RectTransform>(out var rt))
+                    {
+                        rt.pivot = new Vector2(0.5f, 0f);
+                    }
+
                     float randomScale = Random.Range(0.4f, 1.1f);
                     child.DOScale(Vector3.one * randomScale, 0.5f).SetEase(Ease.OutBack);
                 }
@@ -389,7 +427,7 @@ namespace TMKOC.FuzzBugClone
                 {
                     // Reset to standard size if needed, or keep current? 
                     // Usually we want to reset to standard "sorted" size which seemed to be 0.6f or 0.5f
-                    child.DOScale(Vector3.one * 0.6f, 0.5f).SetEase(Ease.OutBack);
+                    child.DOScale(Vector3.one * _arrangedBugScale, 0.5f).SetEase(Ease.OutBack);
                 }
             }
         }
@@ -405,25 +443,26 @@ namespace TMKOC.FuzzBugClone
             // Total height = (count - 1) * spacing
             // Start Y = CenterY - TotalHeight / 2
             float totalHeight = (childCount - 1) * _gridSpacingY;
-            float startY = _verticalLineStart.localPosition.y - (totalHeight / 2f);
+            // Removed centering: Start from the anchor directly
+            float startY = _verticalLineStart.localPosition.y;
             float fixedX = _verticalLineStart.localPosition.x;
-            
+
             for (int i = 0; i < childCount; i++)
             {
                 Transform child = _bugContainer.GetChild(i);
-                
+
                 float targetY = startY + (i * _gridSpacingY);
                 Vector3 targetPos = new Vector3(fixedX, targetY, 0);
-                
+
                 // Convert to Parent (Jar) space -> Container space
                 Vector3 worldTarget = _verticalLineStart.parent.TransformPoint(new Vector3(fixedX, targetY, _verticalLineStart.localPosition.z));
                 Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
 
                 child.DOLocalMove(localTargetInContainer, 0.5f).SetEase(Ease.OutBack);
                 child.DORotate(Vector3.zero, 0.3f);
-                
+
                 // Force scale 0.6f for uniformity
-                child.DOScale(Vector3.one * 0.6f, 0.5f).SetEase(Ease.OutBack);
+                child.DOScale(Vector3.one * _arrangedBugScale, 0.5f).SetEase(Ease.OutBack);
             }
         }
 

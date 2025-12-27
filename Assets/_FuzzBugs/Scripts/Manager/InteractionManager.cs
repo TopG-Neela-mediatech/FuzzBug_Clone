@@ -91,7 +91,7 @@ namespace TMKOC.FuzzBugClone
             HandleResult(isCorrect, jar);
         }
 
-        public void SubmitAnswer_Bug(FuzzBugController bug)
+        public void SubmitAnswer_Bug(CharacterController bug)
         {
             if (!_isQuestionActive) return;
             
@@ -136,7 +136,7 @@ namespace TMKOC.FuzzBugClone
             }
         }
 
-        private bool CheckLeft(FuzzBugController clickedBug)
+        private bool CheckLeft(CharacterController clickedBug)
         {
             // Find the bug with minimum X (world position) in the active jar
             // We need access to the active jar's bugs. 
@@ -162,7 +162,7 @@ namespace TMKOC.FuzzBugClone
             return leftMost == clickedBug.transform;
         }
 
-        private bool CheckRight(FuzzBugController clickedBug)
+        private bool CheckRight(CharacterController clickedBug)
         {
             Transform container = clickedBug.transform.parent;
             if (container == null) return false;
@@ -182,7 +182,7 @@ namespace TMKOC.FuzzBugClone
             return rightMost == clickedBug.transform;
         }
 
-        private bool CheckTop(FuzzBugController clickedBug)
+        private bool CheckTop(CharacterController clickedBug)
         {
             Transform container = clickedBug.transform.parent;
             if (container == null) return false;
@@ -201,7 +201,7 @@ namespace TMKOC.FuzzBugClone
             return topMost == clickedBug.transform;
         }
 
-        private bool CheckBottom(FuzzBugController clickedBug)
+        private bool CheckBottom(CharacterController clickedBug)
         {
             Transform container = clickedBug.transform.parent;
             if (container == null) return false;
@@ -220,7 +220,7 @@ namespace TMKOC.FuzzBugClone
             return bottomMost == clickedBug.transform;
         }
 
-        private bool CheckLargest(FuzzBugController clickedBug)
+        private bool CheckLargest(CharacterController clickedBug)
         {
             Transform container = clickedBug.transform.parent;
             if (container == null) return false;
@@ -245,7 +245,7 @@ namespace TMKOC.FuzzBugClone
             return largest == clickedBug.transform;
         }
 
-        private bool CheckSmallest(FuzzBugController clickedBug)
+        private bool CheckSmallest(CharacterController clickedBug)
         {
             Transform container = clickedBug.transform.parent;
             if (container == null) return false;

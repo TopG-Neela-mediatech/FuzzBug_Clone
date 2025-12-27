@@ -15,15 +15,16 @@ namespace TMKOC.FuzzBugClone
         private CanvasGroup _canvasGroup;
         private Vector2 _originalPosition;
         private Transform _originalParent;
+        public Transform OriginalParent => _originalParent;
         private int _originalSiblingIndex;
-        private FuzzBugController _bugController;
+        private CharacterController _bugController;
         private bool _isConsumed = false;
 
         private void Awake()
         {
             _rectTransform = GetComponent<RectTransform>();
             _canvasGroup = GetComponent<CanvasGroup>();
-            _bugController = GetComponent<FuzzBugController>();
+            _bugController = GetComponent<CharacterController>();
             
             // Find the root canvas
             _canvas = GetComponentInParent<Canvas>();

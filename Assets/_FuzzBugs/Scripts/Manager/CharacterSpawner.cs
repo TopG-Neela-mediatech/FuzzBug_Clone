@@ -13,7 +13,7 @@ namespace TMKOC.FuzzBugClone
 
     public class CharacterSpawner : GenericSingleton<CharacterSpawner>
     {
-        [SerializeField] private GameObject _characterPrefab;
+        [SerializeField] private CharacterController _characterPrefab;
         [SerializeField] private RectTransform _spawnArea;
         [SerializeField] private float _moveSpeed = 100f;
         [SerializeField] private List<BugConfig> _bugConfigs;
@@ -51,25 +51,17 @@ namespace TMKOC.FuzzBugClone
 
         private void SpawnSingleCharacter(BugColorType colorType, Sprite sprite)
         {
-            GameObject newCharacter = Instantiate(_characterPrefab, _spawnArea);
-            
-            RectTransform charRect = newCharacter.GetComponent<RectTransform>();
-            if (charRect != null)
-            {
-                // Random position within the spawn area (X only)
-                float randomX = Random.Range(-_spawnArea.rect.width / 2f, _spawnArea.rect.width / 2f);
-                
-                // Keep Y at 0 (center of SpawnArea) as requested
-                charRect.anchoredPosition = new Vector2(randomX, 0f);
-            }
+            var newCharacter = Instantiate(_characterPrefab, _spawnArea);
 
-            FuzzBugController controller = newCharacter.GetComponent<FuzzBugController>();
-            if (controller != null)
-            {
-                // Randomize direction: Left or Right
-                Vector2 randomDirection = (Random.value > 0.5f) ? Vector2.right : Vector2.left;
-                controller.Initialize(randomDirection, _moveSpeed, sprite, colorType);
-            }
+            // Random position within the spawn area (X only)
+            float randomX = Random.Range(-_spawnArea.rect.width / 2f, _spawnArea.rect.width / 2f);
+
+            // Keep Y at 0 (center of SpawnArea) as requested
+            newCharacter.RectTransform.anchoredPosition = new Vector2(randomX, 0f);
+
+            // Randomize direction: Left or Right
+            Vector2 randomDirection = (Random.value > 0.5f) ? Vector2.right : Vector2.left;
+            newCharacter.Initialize(randomDirection, _moveSpeed, sprite, colorType);
         }
 
         private Sprite GetSpriteForColor(BugColorType color)

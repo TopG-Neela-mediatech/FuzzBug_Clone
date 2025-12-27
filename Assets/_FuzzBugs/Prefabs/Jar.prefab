@@ -203,7 +203,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -100}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &2775928135348536924
@@ -241,7 +241,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: 50}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 75, y: 50}
   m_Pivot: {x: 0.5, y: 1}
 --- !u!222 &693376556592203275
@@ -462,10 +462,14 @@ MonoBehaviour:
   _bugContainer: {fileID: 6551174220196896449}
   _jarEntryPointLeft: {fileID: 2349256002383128528}
   _jarEntryPointRight: {fileID: 2512508972995218268}
-  _dropVarianceX: 40
+  _horizontalLineStart: {fileID: 0}
+  _verticalLineStart: {fileID: 0}
+  _dropVarianceX: 100
+  _countTextParent: {fileID: 2775928135348536924}
   _countText: {fileID: 5084270698580589864}
   _gridSpacingX: 60
-  _gridSpacingY: 60
+  _arrangementSpacingX: 120
+  _gridSpacingY: 65
   _gridColumns: 3
   _startY: 0
 --- !u!225 &6068978304860458330

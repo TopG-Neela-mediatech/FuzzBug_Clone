@@ -24,12 +24,22 @@ namespace TMKOC.FuzzBugClone
                     // 1. Consume the draggable event so it doesn't return to start
                     draggable.Consume();
 
-                    // 2. Parent Jar to this Slot (or just move position)
-                    // If we parent, we might mess up scale if slot has diff scale. 
-                    // Safer to keep parent as is or move to a common container?
-                    // User said "Jar Slots will be a child of a gameObject...". 
-                    // Let's assume parenting to Slot is fine for now, or just setting position.
-                    
+                    // Check for Existing Jar -> Swap Logic
+                    JarController existingJar = GetComponentInChildren<JarController>();
+                    if (existingJar != null && existingJar != jar)
+                    {
+                        Transform otherSlot = draggable.OriginalParent;
+                        if (otherSlot != null)
+                        {
+                            Debug.Log($"Swapping Jars: {existingJar.name} to {otherSlot.name}");
+                            existingJar.transform.SetParent(otherSlot);
+                            existingJar.transform.DOLocalMove(Vector3.zero, 0.3f).SetEase(Ease.OutBack);
+                            
+                            // Note: If otherSlot is a JarSlot, we should ideally trigger its logic or ensure clean state,
+                            // but simpler reparenting usually works if IsOccupied is just a logic flag not a blocker.
+                        }
+                    }
+
                     // Move Jar to Slot Position (Smooth Snap)
                     jar.transform.SetParent(transform); // Parent to slot for logic tracking
                     jar.transform.DOLocalMove(Vector3.zero, 0.3f).SetEase(Ease.OutBack);

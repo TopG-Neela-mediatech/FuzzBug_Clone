@@ -4,12 +4,16 @@ using UnityEngine.UI;
 
 namespace TMKOC.FuzzBugClone
 {
-    public class FuzzBugController : MonoBehaviour, IPointerClickHandler
+    public class CharacterController : MonoBehaviour, IPointerClickHandler
     {
         [SerializeField] private float _moveSpeed = 100f;
         [SerializeField] private Animator _animator;
 
-        private RectTransform _rectTransform;
+
+        [SerializeField] private RectTransform _rectTransform;
+        public RectTransform RectTransform => _rectTransform;
+
+
         private Vector2 _moveDirection;
         private RectTransform _parentRect;
 
@@ -21,7 +25,8 @@ namespace TMKOC.FuzzBugClone
 
         private void Awake()
         {
-            _rectTransform = GetComponent<RectTransform>();
+            if (_rectTransform == null)
+                _rectTransform = GetComponent<RectTransform>();
             if (_animator == null)
             {
                 _animator = GetComponentInChildren<Animator>();
@@ -34,7 +39,7 @@ namespace TMKOC.FuzzBugClone
             {
                 _parentRect = transform.parent.GetComponent<RectTransform>();
             }
-            
+
             // Start walking immediately as we move by default
             PlayAnimation(ANIM_WALK);
         }
@@ -52,11 +57,11 @@ namespace TMKOC.FuzzBugClone
         public void Initialize(Vector2 startDirection, float speed, Sprite sprite, BugColorType colorType)
         {
             _moveDirection = startDirection.normalized;
-            
+
             // Apply random variance to the base speed
             float randomSpeedDelta = Random.Range(-_speedVariance, _speedVariance);
             _moveSpeed = speed + randomSpeedDelta;
-            
+
             _myColor = colorType;
 
             if (_image != null && sprite != null)
