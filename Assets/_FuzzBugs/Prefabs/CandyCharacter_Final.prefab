@@ -81,7 +81,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _dragAlpha: 1
-  _returnSpeed: 10
+  _returnSpeed: 1.5
 --- !u!1001 &7040400468807633047
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -84,6 +84,7 @@ namespace TMKOC.FuzzBugClone
 
         public BugColorType BugColor => _myColor;
         private bool _isDragging = false;
+        private bool _isSorted = false;
 
         public void SetDragging(bool isDragging)
         {
@@ -98,13 +99,16 @@ namespace TMKOC.FuzzBugClone
                 // If we stop dragging but aren't sorted yet, maybe go back to Walk? 
                 // Or let the caller decide. For now, default to Walk if just dropping in void.
                 // If dropped in Jar, JarController will override this to StaticIdle.
-                PlayAnimation(ANIM_WALK);
+                if (!_isSorted)
+                    PlayAnimation(ANIM_WALK);
+                else
+                    PlayAnimation(ANIM_IDLE);
             }
         }
 
         private void UpdateMovement()
         {
-            if (_rectTransform == null || _isDragging) return;
+            if (_rectTransform == null || _isDragging || _isSorted) return;
 
             _rectTransform.anchoredPosition += _moveDirection * _moveSpeed * Time.deltaTime;
         }
@@ -138,6 +142,7 @@ namespace TMKOC.FuzzBugClone
 
         public void SetSorted()
         {
+            _isSorted = true;
             PlayAnimation(ANIM_IDLE);
         }
 
@@ -158,7 +163,7 @@ namespace TMKOC.FuzzBugClone
                 // Verify state exists? Hard to do efficiently without hashing. 
                 // We'll trust the string exists or Animator ignores it.
                 // Added check for runtimeAnimatorController to be safe.
-                _animator.Play(stateName);
+                _animator.CrossFade(stateName, 0.05f);
             }
         }
 
@@ -167,6 +172,13 @@ namespace TMKOC.FuzzBugClone
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            // Check if interactions are blocked
+            if (GameManager.Instance != null && GameManager.Instance.AreInteractionsBlocked)
+            {
+                Debug.Log("BugCharacterController: Interactions blocked, ignoring tap.");
+                return;
+            }
+
             // Forward interaction to Parent JarController
             // The JarController validates if the current GameState allows interaction
             if (GameManager.Instance != null)

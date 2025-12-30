@@ -32,6 +32,14 @@ namespace TMKOC.FuzzBugClone
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            // Check if interactions are blocked
+            if (GameManager.Instance != null && GameManager.Instance.AreInteractionsBlocked)
+            {
+                Debug.Log("Draggable: Interactions blocked, preventing drag.");
+                eventData.pointerDrag = null; // Cancel the drag
+                return;
+            }
+
             _isConsumed = false;
             if (_bugController != null)
             {
@@ -75,6 +83,16 @@ namespace TMKOC.FuzzBugClone
                     _bugController.SetDragging(false);
                 }
             }
+            else
+            {
+                 // Consumed (Success Drop)
+                 // JarController handles parenting, but we might want to ensure dragging state is cleared?
+                 // Actually JarController calls SetSorted() later, but for safety:
+                 if (_bugController != null)
+                 {
+                    _bugController.SetDragging(false);
+                 }
+            }
         }
 
         public void Consume()
@@ -99,13 +117,16 @@ namespace TMKOC.FuzzBugClone
         {
             float t = 0;
             Vector2 startPos = _rectTransform.anchoredPosition;
+            // Target is: Keep current X (dropped location), fall back to original Y
+            Vector2 targetPos = new Vector2(startPos.x, _originalPosition.y);
+            
             while (t < 1f)
             {
                 t += Time.deltaTime * _returnSpeed;
-                _rectTransform.anchoredPosition = Vector2.Lerp(startPos, _originalPosition, t);
-                yield return null;
+                _rectTransform.anchoredPosition = Vector2.Lerp(startPos, targetPos, t);
+                 yield return null;
             }
-            _rectTransform.anchoredPosition = _originalPosition;
+            _rectTransform.anchoredPosition = targetPos;
         }
     }
 }

@@ -25,19 +25,25 @@ namespace TMKOC.FuzzBugClone
     public class GameManager : GenericSingleton<GameManager>
     {
         #region Fields & Properties
-        
+
         public GameState CurrentState { get; private set; }
 
         public static event Action<GameState> OnStateChange;
 
         [Header("Scene References")]
-        [SerializeField] private Transform _jarSlotsContainer;
-        [SerializeField] private GameObject _endPanel;
 
         private int _totalBugsToSort;
         private int _bugsSortedCount;
         private int _jarsFinishedCount = 0;
         private JarController _activeJar;
+
+        [Header("Lives Settings")]
+        [SerializeField] private int _maxLives = 3;
+        private int _currentLives;
+
+        // Interaction Blocking
+        private bool _interactionsBlocked = false;
+        public bool AreInteractionsBlocked => _interactionsBlocked;
 
         #endregion
 
@@ -85,9 +91,13 @@ namespace TMKOC.FuzzBugClone
                     Debug.Log("GameManager: All bugs sorted! Ready for Counting.");
                     break;
                 case GameState.FindLeast:
+                    // Block interactions until question audio completes
+                    BlockInteractions(true);
                     InteractionManager.Instance.PlayQuestion(QuestionType.FindLeast);
                     break;
                 case GameState.FindMost:
+                    // Block interactions until question audio completes
+                    BlockInteractions(true);
                     InteractionManager.Instance.PlayQuestion(QuestionType.FindMost);
                     break;
                 case GameState.CountSorting:
@@ -100,18 +110,21 @@ namespace TMKOC.FuzzBugClone
                     HandleFindLeftState();
                     break;
                 case GameState.FindRight:
+                    BlockInteractions(true);
                     InteractionManager.Instance.PlayQuestion(QuestionType.FindRight);
                     break;
                 case GameState.FindTop:
                     HandleFindTopState();
                     break;
                 case GameState.FindBottom:
+                    BlockInteractions(true);
                     InteractionManager.Instance.PlayQuestion(QuestionType.FindBottom);
                     break;
                 case GameState.FindLargest:
                     HandleFindLargestState();
                     break;
                 case GameState.FindSmallest:
+                    BlockInteractions(true);
                     InteractionManager.Instance.PlayQuestion(QuestionType.FindSmallest);
                     break;
                 case GameState.GameEnd:
@@ -126,13 +139,22 @@ namespace TMKOC.FuzzBugClone
         {
             _jarsFinishedCount = 0;
             _bugsSortedCount = 0;
-            
+
+            // Reset Lives
+            _currentLives = _maxLives;
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateLives(_currentLives);
+            }
+
             LevelDataManager.Instance.GenerateLevelData();
             CalculateTotalBugs();
-            
-            if (_endPanel != null) 
-                _endPanel.SetActive(false);
-            
+
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.ShowEndPanel(false);
+            }
+
             ChangeState(GameState.ColorSorting);
         }
 
@@ -145,6 +167,7 @@ namespace TMKOC.FuzzBugClone
         private void HandleCountSortingState()
         {
             Debug.Log("GameManager: Ordering Enabled.");
+
             ActivateJarOrdering();
         }
 
@@ -153,6 +176,7 @@ namespace TMKOC.FuzzBugClone
             if (_activeJar != null)
             {
                 _activeJar.ArrangeBugsHorizontally(randomizeSize: false);
+                BlockInteractions(true);
                 InteractionManager.Instance.PlayQuestion(QuestionType.FindLeft);
             }
             else
@@ -166,6 +190,7 @@ namespace TMKOC.FuzzBugClone
             if (_activeJar != null)
             {
                 _activeJar.ArrangeBugsVertically();
+                BlockInteractions(true);
                 InteractionManager.Instance.PlayQuestion(QuestionType.FindTop);
             }
         }
@@ -175,6 +200,7 @@ namespace TMKOC.FuzzBugClone
             if (_activeJar != null)
             {
                 _activeJar.ArrangeBugsHorizontally(randomizeSize: true);
+                BlockInteractions(true);
                 InteractionManager.Instance.PlayQuestion(QuestionType.FindLargest);
             }
         }
@@ -182,9 +208,9 @@ namespace TMKOC.FuzzBugClone
         private void HandleGameEndState()
         {
             Debug.Log("Game Over!");
-            if (_endPanel != null)
+            if (UIManager.Instance != null)
             {
-                _endPanel.SetActive(true);
+                UIManager.Instance.ShowEndPanel(true);
             }
         }
 
@@ -195,6 +221,21 @@ namespace TMKOC.FuzzBugClone
         private void HandleQuestionCorrect()
         {
             Debug.Log("GameManager: Handling Correct Answer transition.");
+
+            // Stop celebration animations for spatial/size questions before transitioning
+            if (CurrentState == GameState.FindLeft ||
+                CurrentState == GameState.FindRight ||
+                CurrentState == GameState.FindTop ||
+                CurrentState == GameState.FindBottom ||
+                CurrentState == GameState.FindLargest ||
+                CurrentState == GameState.FindSmallest)
+            {
+                if (_activeJar != null)
+                {
+                    _activeJar.ResetBugAnimations();
+                }
+            }
+
             switch (CurrentState)
             {
                 case GameState.FindLeast:
@@ -246,14 +287,51 @@ namespace TMKOC.FuzzBugClone
 
             if (_jarsFinishedCount >= System.Enum.GetValues(typeof(BugColorType)).Length)
             {
-                ChangeState(GameState.FindLeast);
+                StartCoroutine(WaitAndFinishCountingRoutine());
             }
+        }
+
+        public void OnAllJarsCountedComplete()
+        {
+            // Play instruction audio without blocking interactions
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlayVoice(
+                    FuzzBugAudio.Instruction_TapJarToQuiz,
+                    onComplete: null,
+                    blockInteractions: false
+                );
+            }
+
+            // Add small delay before transitioning to ensure jar raycasts are properly enabled
+            StartCoroutine(DelayedStateTransition(GameState.FindLeast, 0.1f));
+        }
+
+        private System.Collections.IEnumerator DelayedStateTransition(GameState newState, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            ChangeState(newState);
+        }
+
+        private System.Collections.IEnumerator WaitAndFinishCountingRoutine()
+        {
+            // Wait for celebration to play
+            yield return new WaitForSeconds(1.5f);
+
+            // Clean up animation on the active jar
+            if (_activeJar != null)
+            {
+                _activeJar.ResetBugAnimations();
+            }
+
+            // Play instruction and proceed
+            OnAllJarsCountedComplete();
         }
 
         public void OnJarDroppedInSlot()
         {
             if (CurrentState != GameState.CountSorting) return;
-            if (_jarSlotsContainer == null) return;
+            if (UIManager.Instance == null || UIManager.Instance.JarSlotsContainer == null) return;
 
             CheckJarOrder();
         }
@@ -277,7 +355,22 @@ namespace TMKOC.FuzzBugClone
 
             SetActiveJar(jar);
             Debug.Log($"GameManager: Starting Quiz for {jar.gameObject.name}");
-            ChangeState(GameState.FindLeft);
+
+            // Play transition audio with interaction blocking, then start quiz
+            if (AudioManager.Instance != null)
+            {
+                BlockInteractions(true);
+                AudioManager.Instance.PlayVoiceDelayed(
+                    FuzzBugAudio.Transition_QuizStart,
+                    delay: 0.3f,
+                    onComplete: () => ChangeState(GameState.FindLeft),
+                    blockInteractions: false // We already blocked above
+                );
+            }
+            else
+            {
+                ChangeState(GameState.FindLeft);
+            }
         }
 
         #endregion
@@ -286,22 +379,24 @@ namespace TMKOC.FuzzBugClone
 
         private void ActivateJarOrdering()
         {
-            if (_jarSlotsContainer != null)
+            if (UIManager.Instance != null)
             {
-                _jarSlotsContainer.gameObject.SetActive(true);
+                UIManager.Instance.EnableJarSlots(true);
             }
         }
 
         private void CheckJarOrder()
         {
-            int slotsCount = _jarSlotsContainer.childCount;
+            if (UIManager.Instance == null) return;
+
+            int slotsCount = UIManager.Instance.JarSlotsContainer.childCount;
             JarController[] orderedJars = new JarController[slotsCount];
             bool allFilled = true;
 
             // 1. Checks if all slots are filled
             for (int i = 0; i < slotsCount; i++)
             {
-                Transform slot = _jarSlotsContainer.GetChild(i);
+                Transform slot = UIManager.Instance.JarSlotsContainer.GetChild(i);
                 JarController jar = slot.GetComponentInChildren<JarController>();
 
                 if (jar == null)
@@ -319,11 +414,13 @@ namespace TMKOC.FuzzBugClone
                 if (IsOrderCorrect(orderedJars))
                 {
                     Debug.Log("<color=green>SUCCESS: Jars are sorted in Ascending Order!</color>");
-                    ChangeState(GameState.SelectJarToQuiz);
+                    // Add small delay to ensure jar raycasts are properly enabled
+                    StartCoroutine(DelayedStateTransition(GameState.SelectJarToQuiz, 0.15f));
                 }
                 else
                 {
                     Debug.Log("<color=red>FAIL: Jars are NOT in Ascending Order.</color>");
+                    DecreaseLife();
                 }
             }
         }
@@ -356,6 +453,34 @@ namespace TMKOC.FuzzBugClone
                 _totalBugsToSort += LevelDataManager.Instance.GetCountForColor(color);
             }
             Debug.Log($"GameManager: Total bugs to sort: {_totalBugsToSort}");
+        }
+
+        /// <summary>
+        /// Blocks or unblocks all game interactions.
+        /// </summary>
+        public void BlockInteractions(bool block)
+        {
+            _interactionsBlocked = block;
+            Debug.Log($"GameManager: Interactions {(block ? "BLOCKED" : "UNBLOCKED")}");
+        }
+
+        public void DecreaseLife()
+        {
+            if (CurrentState == GameState.GameEnd) return;
+
+            _currentLives--;
+            Debug.Log($"GameManager: Life Lost! Remaining: {_currentLives}");
+
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateLives(_currentLives);
+            }
+
+            if (_currentLives <= 0)
+            {
+                Debug.Log("GameManager: No lives left! Game Over.");
+                ChangeState(GameState.GameEnd);
+            }
         }
 
         #endregion

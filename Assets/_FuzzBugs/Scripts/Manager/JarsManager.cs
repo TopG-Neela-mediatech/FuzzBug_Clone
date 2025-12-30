@@ -38,6 +38,7 @@ namespace TMKOC.FuzzBugClone
                     break;
                 case GameState.SelectJarToQuiz:
                     ToggleJarsDraggable(false);
+                    ToggleJarsRaycast(true); // Ensure all jars are clickable, especially the last one dragged
                     break;
                 case GameState.Graphing:
                     break;

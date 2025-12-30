@@ -7,7 +7,7 @@ using System.Collections;
 
 namespace TMKOC.FuzzBugClone
 {
-    public class JarController : MonoBehaviour, IDropHandler, IPointerClickHandler
+    public class JarController : MonoBehaviour, IDropHandler, IPointerClickHandler, IBeginDragHandler
     {
         [SerializeField] private Image _jar;
         [SerializeField] private BugColorType _jarColorType;
@@ -36,6 +36,8 @@ namespace TMKOC.FuzzBugClone
         [SerializeField] private float _gridLayoutDuration = 0.5f;
         [SerializeField] private float _horizontalLayoutDuration = 0.5f;
         [SerializeField] private float _verticalLayoutDuration = 0.5f;
+        [SerializeField] private int _maxVerticalBugs = 5;
+        [SerializeField] private float _offScreenBottomY = -800f;
 
         private Material _jarMaterial;
         private bool _isCounting = false;
@@ -58,6 +60,13 @@ namespace TMKOC.FuzzBugClone
 
         public void OnDrop(PointerEventData eventData)
         {
+            // Check if interactions are blocked
+            if (GameManager.Instance != null && GameManager.Instance.AreInteractionsBlocked)
+            {
+                Debug.Log("JarController: Interactions blocked, ignoring drop.");
+                return;
+            }
+
             Debug.Log($"OnDrop called on {gameObject.name}");
             if (eventData.pointerDrag != null)
             {
@@ -87,16 +96,10 @@ namespace TMKOC.FuzzBugClone
                         // Notify draggable it's handled
                         draggable.Consume();
 
-                        // Parenting to Jar Container
-                        if (_bugContainer != null)
-                        {
-                            bug.transform.SetParent(_bugContainer);
-                        }
-                        else
-                        {
-                            bug.transform.SetParent(transform);
-                            Debug.LogWarning("Bug Container not assigned in JarController, parenting to Jar root.");
-                        }
+                        // DONT PARENT HERE
+
+                        // DONT PARENT HERE (Delayed until animation reach entry point)
+                        // Parenting to Jar Container will happen in Tween Callback
 
                         // Disable interactions
                         if (bug.TryGetComponent<CanvasGroup>(out var cg))
@@ -126,8 +129,21 @@ namespace TMKOC.FuzzBugClone
 
                             // Jump to the entry point (World Position)
                             // Power 1-2f, 1 jump, duration 0.6s, Linear Ease
+                            float jumpDuration = 0.6f;
                             float jumpPower = Random.Range(1f, 2f);
-                            dropSequence.Append(bug.transform.DOJump(entryPos, jumpPower, 1, 0.6f).SetEase(Ease.Linear));
+                            dropSequence.Append(bug.transform.DOJump(entryPos, jumpPower, 1, jumpDuration).SetEase(Ease.Linear));
+
+                            // Reparent at Peak (50% of duration) to simulate falling 'into' the jar
+                            dropSequence.InsertCallback(jumpDuration * 0.5f, () => 
+                            {
+                                if (bug != null) 
+                                {
+                                    if (_bugContainer != null)
+                                        bug.transform.SetParent(_bugContainer, true); // Keep world pos
+                                    else
+                                        bug.transform.SetParent(transform, true);
+                                }
+                            });
 
                             // Then Fall/Move to final spot
                             // Duration 0.5s, Linear/InQuad for falling effect
@@ -165,12 +181,30 @@ namespace TMKOC.FuzzBugClone
                         // Notify Manager
                         if (GameManager.Instance != null)
                         {
+                            Debug.Log($"JarController: Notifying GameManager of sorted bug {bug.BugColor}");
                             GameManager.Instance.OnBugSorted();
+                        }
+                        else
+                        {
+                            Debug.LogError("JarController: GameManager Instance is NULL!");
+                        }
+
+                        // Play FX
+                        if (FXManager.Instance != null)
+                        {
+                            // Passing Color.white for now as we don't have direct color mapping access here yet
+                            FXManager.Instance.PlayDropFX(bug.transform.position, Color.white);
                         }
                     }
                     else
                     {
                         Debug.Log($"<color=red>Wrong Bug! {bug.BugColor} does not match {_jarColorType} Jar.</color>");
+                        
+                        if (GameManager.Instance != null)
+                        {
+                            GameManager.Instance.DecreaseLife();
+                        }
+
                         // Do NOT consume. Let it return to start via Draggable.cs OnEndDrag
                     }
                 }
@@ -179,6 +213,13 @@ namespace TMKOC.FuzzBugClone
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            // Check if interactions are blocked
+            if (GameManager.Instance != null && GameManager.Instance.AreInteractionsBlocked)
+            {
+                Debug.Log("JarController: Interactions blocked, ignoring click.");
+                return;
+            }
+
             // Question Phase Interaction
             if (GameManager.Instance.CurrentState == GameState.FindLeast ||
                 GameManager.Instance.CurrentState == GameState.FindMost)
@@ -202,6 +243,12 @@ namespace TMKOC.FuzzBugClone
             {
                 StartCountingSequence();
             }
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            // Reset all bugs to idle animation when jar is dragged
+            ResetBugsToIdle();
         }
 
         private void StartCountingSequence()
@@ -267,6 +314,10 @@ namespace TMKOC.FuzzBugClone
             bug.transform.DOPunchScale(Vector3.one * 0.2f, 0.2f, 10, 1);
             bug.PlayDance();
 
+            // Play FX
+            if (FXManager.Instance != null)
+                FXManager.Instance.PlayCountFX(bug.transform.position);
+
             // Increment Count
             int currentCount = 0;
             if (int.TryParse(_countText.text, out int parsed)) currentCount = parsed;
@@ -323,22 +374,26 @@ namespace TMKOC.FuzzBugClone
             if (_isFinished)
             {
                 // If finished, just stop dancing, but keep position
-                if (_bugContainer != null)
-                {
-                    foreach (Transform child in _bugContainer)
-                    {
-                        BugCharacterController bug = child.GetComponent<BugCharacterController>();
-                        if (bug != null)
-                        {
-                            bug.PlayStaticIdle();
-                        }
-                    }
-                }
+                ResetBugsToIdle();
             }
             else
             {
                 // If not finished, full reset (messy pile)
                 ResetCountingState();
+            }
+        }
+
+        private void ResetBugsToIdle()
+        {
+            if (_bugContainer == null) return;
+
+            foreach (Transform child in _bugContainer)
+            {
+                BugCharacterController bug = child.GetComponent<BugCharacterController>();
+                if (bug != null)
+                {
+                    bug.PlayStaticIdle();
+                }
             }
         }
 
@@ -480,11 +535,37 @@ namespace TMKOC.FuzzBugClone
                 Vector3 worldTarget = _verticalLineStart.parent.TransformPoint(new Vector3(fixedX, targetY, _verticalLineStart.localPosition.z));
                 Vector3 localTargetInContainer = _bugContainer.InverseTransformPoint(worldTarget);
 
-                child.DOLocalMove(localTargetInContainer, _verticalLayoutDuration).SetEase(Ease.OutBack);
-                child.DORotate(Vector3.zero, 0.3f);
+                if (i < _maxVerticalBugs)
+                {
+                    // VISIBLE BUGS
+                    child.DOLocalMove(localTargetInContainer, _verticalLayoutDuration).SetEase(Ease.OutBack);
+                    child.DORotate(Vector3.zero, 0.3f);
+                    // Force scale 0.6f for uniformity
+                    child.DOScale(Vector3.one * _arrangedBugScale, _verticalLayoutDuration).SetEase(Ease.OutBack);
+                }
+                else
+                {
+                    // OVERFLOW BUGS - EXIT SCREEN
+                    // Animate jump off-screen downwards
+                    Vector3 exitPos = localTargetInContainer;
+                    exitPos.y = _offScreenBottomY; 
 
-                // Force scale 0.6f for uniformity
-                child.DOScale(Vector3.one * _arrangedBugScale, _verticalLayoutDuration).SetEase(Ease.OutBack);
+                    // Jump/Move sequence
+                    Sequence exitSeq = DOTween.Sequence();
+                    // Slight delay based on index for staggered exit
+                    float delay = (i - _maxVerticalBugs) * 0.1f;
+                    
+                    exitSeq.SetDelay(delay);
+                    exitSeq.Append(child.DOLocalJump(exitPos, 100f, 1, _verticalLayoutDuration).SetEase(Ease.InQuad));
+                    
+                    // Destroy on complete to remove from hierarchy (and "list")
+                    // We capture the GameObject here to avoid closure issues with iteration variable if any,
+                    // but child is local to loop so it's safe.
+                    GameObject bugObj = child.gameObject; 
+                    exitSeq.OnComplete(() => {
+                        if (bugObj != null) Destroy(bugObj);
+                    });
+                }
             }
         }
 
